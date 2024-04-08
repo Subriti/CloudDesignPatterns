@@ -1,12 +1,6 @@
 using AspNetCoreRateLimit;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.RateLimiting;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 using Polly;
-using System;
 using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -15,9 +9,6 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 builder.Services.AddLogging();
-
-//builder.Services.AddSingleton<HttpRetryHelper>();
-
 
 // Configure HttpClient with Polly Circuit Breaker
 builder.Services.AddHttpClient("errorApiClient", client =>

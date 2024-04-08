@@ -8,6 +8,7 @@ namespace ArchitecturePatterns.Controllers
     public class RetryController : ControllerBase
     {
         string requestEndpoint = "api/values";
+        //"https://jsonplaceholder.typicode.com/posts/101";
 
         private readonly ILogger<RetryController> _logger;
         private readonly IHttpClientFactory _httpClientFactory;
@@ -17,6 +18,11 @@ namespace ArchitecturePatterns.Controllers
             _logger = logger;
             _httpClientFactory = httpClientFactory;
         }
+
+        /// <summary>
+        /// A global throttling policy is applied to all endpoints (10 requests per minute)
+        /// </summary>
+        /// <returns></returns>
 
         [HttpGet("Users")]
         public async Task<IActionResult> GetUsers()
@@ -63,8 +69,7 @@ namespace ArchitecturePatterns.Controllers
                      Console.WriteLine($"Retry count {count}");
                  });
 
-            //HttpClient client = new HttpClient();
-
+            //this client is bound to the circuit breaker policy defined in program.cs
             var client = _httpClientFactory.CreateClient("errorApiClient");
             HttpResponseMessage response = await retryPolicy.ExecuteAsync(() => client.GetAsync("https://jsonplaceholder.typicode.com/postss"));
 
@@ -81,30 +86,41 @@ namespace ArchitecturePatterns.Controllers
             }
         }
 
-        /*[HttpGet("CircuitBreaker")]
-        public async Task<string> Get()
-        {
-            var client = _httpClientFactory.CreateClient("errorApiClient");
-            return await client.GetStringAsync("https://jsonplaceholder.typicode.com/posts/200");
-        }*/
+        /// <summary>
+        /// Circuit Breaker stops the request to an unknown URL after 3 calls
+        /// But if the requested page is not found; it follows the throttling policy
+        /// </summary>
+        /// <returns></returns>
 
-        [HttpGet("CircuitBreaker")]
+        [HttpGet("CircuitBreaker/NotFound")]
         public async Task<IActionResult> GetWithCircuitBreaker()
         {
-            var client = _httpClientFactory.CreateClient("errorApiClient");
-            HttpResponseMessage response = await client.GetAsync("https://jsonplaceholder.typicode.com/posts/200");
+            try
+            {
+                var client = _httpClientFactory.CreateClient("errorApiClient");
+                HttpResponseMessage response = await client.GetAsync("https://jsonplaceholder.typicode.com/posts/200");
 
-            if (response.IsSuccessStatusCode)
-            {
-                return Content(await response.Content.ReadAsStringAsync());
+                if (response.IsSuccessStatusCode)
+                {
+                    return Content(await response.Content.ReadAsStringAsync());
+                }
+                else
+                {
+                    return StatusCode((int)response.StatusCode, "Failed to fetch data from the server.");
+                }
             }
-            else
+            catch (Exception ex)
             {
-                return StatusCode((int)response.StatusCode, "Failed to fetch data from the server.");
+                _logger.LogError($"Error: {ex.Message}");
+                return StatusCode(500, $"An error occurred: {ex.Message}");
             }
         }
 
-        [HttpGet("CB1")]
+        /// <summary>
+        /// Circuit Breaker stops the request to an unknown URL after 3 calls
+        /// </summary>
+        /// <returns></returns>
+        [HttpGet("CircuitBreaker/UnknownHost")]
         public async Task<IActionResult> ImplementCircuitBreaker()
         {
             try
@@ -118,7 +134,8 @@ namespace ArchitecturePatterns.Controllers
                     {
                         _logger.LogError($"Request failed: {response.StatusCode}");
                         // Simulate changing endpoint for each request
-                        return Redirect($"https://jsonplaceholder.typicode.com/posts/{i + 1}");
+                        requestEndpoint = $"https://jsonplaceholder.typicode.com/posts/{i + 1}";
+                        return Redirect(requestEndpoint);
                     }
                     await Task.Delay(3000); // Simulate some delay between requests
                 }
@@ -130,49 +147,5 @@ namespace ArchitecturePatterns.Controllers
                 return StatusCode(500, $"An error occurred: {ex.Message}");
             }
         }
-
-        /*[HttpGet("CBdhdh")]
-        public async Task Implement()
-        {
-            setup();
-            for (int i=0; i<5; i++)
-            {
-                try
-                {
-                    Thread.Sleep(3000);
-                    fetch().GetAwaiter().GetResult();
-                }
-                catch(Exception e)
-                {
-                    Console.WriteLine(e);
-                    requestEndpoint = "https://jsonplaceholder.typicode.com/posts/1";
-                }
-            }
-        }
-
-        public async Task<IActionResult> fetch()
-        {
-            HttpClient client = new HttpClient();
-
-            HttpResponseMessage response = await client.GetAsync(requestEndpoint);
-            if (response.IsSuccessStatusCode)
-            {
-                // Return the response content
-                return Content(await response.Content.ReadAsStringAsync());
-            }
-            else
-            {
-                // Return an error message
-                return StatusCode((int)response.StatusCode, "Failed to fetch data from the server.");
-            }
-        }
-
-        public void setup()
-        {
-            var breakerPolicy= Policy.HandleResult<HttpResponseMessage>(r=> !r.IsSuccessStatusCode)
-                .CircuitBreakerAsync(1, TimeSpan.FromSeconds(5));
-        }
-    }*/
-
     }
 }

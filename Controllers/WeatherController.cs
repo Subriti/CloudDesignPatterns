@@ -19,6 +19,10 @@ namespace ArchitecturePatterns.Controllers
             _logger = logger;
         }
 
+        /// <summary>
+        /// A rate limit group policy overrides the global policy applied to all endpoints (5 requests per minute)
+        /// </summary>
+        /// <returns></returns>
         [EnableRateLimiting("Web")]
         [HttpGet(Name = "GetWeatherForecast")]
         public IEnumerable<WeatherForecast> Get()
